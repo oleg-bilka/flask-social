@@ -202,6 +202,7 @@ def login_handler(response, provider, query):
 
 def login_callback(provider_id):
     try:
+        provider_id = request.args.get(provider_id, '')
         provider = _social.providers[provider_id]
         module = import_module(provider.module)
     except KeyError:
