@@ -43,6 +43,7 @@ def _commit(response=None):
 @anonymous_user_required
 def login(provider_id):
     """Starts the provider login OAuth flow"""
+    provider_id = request.args.get(provider_id, '')
     provider = get_provider_or_404(provider_id)
     callback_url = get_authorize_callback('login', provider_id)
     post_login = request.form.get('next', get_post_login_redirect())
@@ -234,7 +235,7 @@ def create_blueprint(state, import_name):
     bp.route('/login/<provider_id>')(login_callback)
 
     bp.route('/login/<provider_id>',
-             methods=['POST'])(login)
+             methods=['GET'])(login)
 
     bp.route('/connect/<provider_id>')(connect_callback)
 
