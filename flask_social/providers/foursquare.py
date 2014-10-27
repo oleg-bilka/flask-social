@@ -12,6 +12,7 @@
 from __future__ import absolute_import
 
 import foursquare
+import urlparse
 
 config = {
     'id': 'foursquare',
@@ -22,12 +23,6 @@ config = {
     'request_token_url': None,
     'access_token_url': 'https://foursquare.com/oauth2/access_token',
     'authorize_url': 'https://foursquare.com/oauth2/authenticate',
-    'access_token_params': {
-        'grant_type': 'authorization_code'
-    },
-    'request_token_params': {
-        'response_type': 'code'
-    }
 }
 
 
@@ -52,7 +47,8 @@ def get_connection_values(response, **kwargs):
     api = foursquare.Foursquare(access_token=access_token)
     user = api.users()['user']
     profile_url = 'http://www.foursquare.com/user/' + user['id']
-    image_url = '%s%s' % (user['photo']['prefix'], user['photo']['suffix'][1:])
+    image_url = urlparse.urljoin(user['photo']['prefix'],
+                                 user['photo']['suffix'])
 
     return dict(
         provider_id=config['id'],
@@ -62,5 +58,12 @@ def get_connection_values(response, **kwargs):
         display_name=profile_url.split('/')[-1:][0],
         full_name = '%s %s' % (user['firstName'], user['lastName']),
         profile_url=profile_url,
-        image_url=image_url
+        image_url=image_url,
+        email=user.get('contact', {}).get('email', ''),
+    )
+
+def get_token_pair_from_response(response):
+    return dict(
+        access_token = response.get('access_token', None),
+        secret = None
     )

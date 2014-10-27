@@ -10,18 +10,19 @@
 """
 from importlib import import_module
 
-from flask import Blueprint, current_app, redirect, request, session, \
-     after_this_request, abort, url_for
+from flask import (Blueprint, current_app, redirect, request, session,
+                   after_this_request, abort, url_for)
 from flask.ext.security import current_user, login_required
-from flask.ext.security.utils import get_post_login_redirect, login_user, \
-     get_url, do_flash
+from flask.ext.security.utils import (get_post_login_redirect, login_user,
+                                      logout_user, get_url, do_flash)
 from flask.ext.security.decorators import anonymous_user_required
 from werkzeug.local import LocalProxy
 
-from .signals import connection_removed, connection_created, \
-     connection_failed, login_completed, login_failed
-from .utils import config_value, get_provider_or_404, get_authorize_callback, \
-     get_connection_values_from_oauth_response
+from .signals import (connection_removed, connection_created,
+                      connection_failed, login_completed, login_failed)
+from .utils import (config_value, get_provider_or_404, get_authorize_callback,
+                    get_connection_values_from_oauth_response,
+                    get_token_pair_from_oauth_response)
 
 
 # Convenient references
@@ -42,10 +43,11 @@ def _commit(response=None):
 @anonymous_user_required
 def login(provider_id):
     """Starts the provider login OAuth flow"""
+    provider_id = request.args.get(provider_id, '')
     provider = get_provider_or_404(provider_id)
     callback_url = get_authorize_callback('login', provider_id)
     post_login = request.form.get('next', get_post_login_redirect())
-    session['post_oauth_login_url'] = post_login
+    session[config_value('POST_OAUTH_LOGIN_SESSION_KEY')] = post_login
     return provider.authorize(callback_url)
 
 
@@ -59,6 +61,14 @@ def connect(provider_id):
     session[config_value('POST_OAUTH_CONNECT_SESSION_KEY')] = pc
     return provider.authorize(callback_url)
 
+
+@login_required
+def reconnect(provider_id):
+    """Tokens automatically refresh with login.
+    Logs user out and starts provider login OAuth flow
+    """
+    logout_user()
+    return login(provider_id)
 
 @login_required
 def remove_all_connections(provider_id):
@@ -118,7 +128,8 @@ def connect_handler(cv, provider):
     :param provider_id: The provider ID the connection shoudl be made to
     """
     cv.setdefault('user_id', current_user.get_id())
-    connection = _datastore.find_connection(**cv)
+    connection = _datastore.find_connection(
+        provider_id=cv['provider_id'], provider_user_id=cv['provider_user_id'])
 
     if connection is None:
         after_this_request(_commit)
@@ -163,6 +174,12 @@ def login_handler(response, provider, query):
 
     if connection:
         after_this_request(_commit)
+        token_pair = get_token_pair_from_oauth_response(provider, response)
+        if (token_pair['access_token'] != connection.access_token or
+            token_pair['secret'] != connection.secret):
+            connection.access_token = token_pair['access_token']
+            connection.secret = token_pair['secret']
+            _datastore.put(connection)
         user = connection.user
         login_user(user)
         key = _social.post_oauth_login_session_key
@@ -185,6 +202,7 @@ def login_handler(response, provider, query):
 
 def login_callback(provider_id):
     try:
+        provider_id = request.args.get(provider_id, '')
         provider = _social.providers[provider_id]
         module = import_module(provider.module)
     except KeyError:
@@ -218,7 +236,7 @@ def create_blueprint(state, import_name):
     bp.route('/login/<provider_id>')(login_callback)
 
     bp.route('/login/<provider_id>',
-             methods=['POST'])(login)
+             methods=['GET'])(login)
 
     bp.route('/connect/<provider_id>')(connect_callback)
 
@@ -230,5 +248,8 @@ def create_blueprint(state, import_name):
 
     bp.route('/connect/<provider_id>/<provider_user_id>',
              methods=['DELETE'])(remove_connection)
+
+    bp.route('/reconnect/<provider_id>',
+             methods=['POST'])(reconnect)
 
     return bp
