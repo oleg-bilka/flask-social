@@ -184,7 +184,7 @@ def login_handler(response, provider, query):
     return redirect(next)
 
 
-def login_callback(provider_id):
+def login_callback():
     try:
         provider_id = request.args.get('provider_id', '')
         provider = _social.providers[provider_id]
