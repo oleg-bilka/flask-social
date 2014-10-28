@@ -215,11 +215,12 @@ def create_blueprint(state, import_name):
     bp = Blueprint(state.blueprint_name, import_name,
                    url_prefix=state.url_prefix,
                    template_folder='templates')
-
     bp.route('/login/social',
-      methods=['GET'])(login)
+             methods=['GET'])(login)
 
     bp.route('/login/social', methods=['POST'])(login_callback)
+
+
 
     bp.route('/connect/<provider_id>')(connect_callback)
 
