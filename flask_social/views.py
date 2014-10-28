@@ -42,7 +42,7 @@ def _commit(response=None):
 @anonymous_user_required
 def login():
     """Starts the provider login OAuth flow"""
-    provider_id= request.args.get('provider_id', '')
+    provider_id = request.args.get('provider_id', None)
     provider = get_provider_or_404(provider_id)
     callback_url = get_authorize_callback('login', provider_id)
     post_login = request.form.get('next', get_post_login_redirect())
