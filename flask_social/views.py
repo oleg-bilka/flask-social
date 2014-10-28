@@ -40,8 +40,9 @@ def _commit(response=None):
 
 
 @anonymous_user_required
-def login(provider_id):
+def login():
     """Starts the provider login OAuth flow"""
+    provider_id= request.args.get('provider_id', '')
     provider = get_provider_or_404(provider_id)
     callback_url = get_authorize_callback('login', provider_id)
     post_login = request.form.get('next', get_post_login_redirect())
@@ -183,8 +184,9 @@ def login_handler(response, provider, query):
     return redirect(next)
 
 
-def login_callback(provider_id):
+def login_callback():
     try:
+        provider_id = request.args.get('provider_id', '')
         provider = _social.providers[provider_id]
         module = import_module(provider.module)
     except KeyError:
