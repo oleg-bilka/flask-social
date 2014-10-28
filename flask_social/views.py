@@ -221,7 +221,7 @@ def create_blueprint(state, import_name):
              methods=['GET'])(login)
 
     bp.route('/login/social', methods=['GET'])(login_callback)
-    
+
     bp.route('/connect/<provider_id>')(connect_callback)
 
     bp.route('/connect/<provider_id>',
